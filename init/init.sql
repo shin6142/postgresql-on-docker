@@ -39,20 +39,27 @@ create table item (
 );
 
 create table archived_item (
-  id integer, 
+  id integer,
   name varchar(10)
 );
 
 -- create trigger
-CREATE FUNCTION archive() RETURNS trigger AS $archive$  --引数なし、戻り値trigger型の関数として宣言 
+CREATE FUNCTION archive() RETURNS trigger AS $archive$
 BEGIN
-  --トリガを呼び出すINSERT文の結果を使ってidと商、余りをanswerテーブルに挿入する
-  INSERT INTO archived_item VALUES (NEW.id, NEW.name);  
-  RETURN NEW;  --trigger型変数のNEWをRETURNする。
+  IF (TG_OP = 'INSERT') THEN
+    INSERT INTO archived_item VALUES (NEW.id, NEW.name); 
+    RETURN NEW;
+  ELSIF (TG_OP = 'UPDATE') THEN
+    INSERT INTO archived_item VALUES (NEW.*); -- OLDを参照して、UPDATE前のレコードの状態を保存することも可能
+    RETURN OLD;
+  ELSIF (TG_OP = 'DELETE') THEN
+    INSERT INTO archived_item VALUES (OLD.id, OLD.name); 
+    RETURN OLD;
+  END IF;
 END;
 $archive$
 LANGUAGE plpgsql;   --言語を指定
 
 
-CREATE TRIGGER archive AFTER INSERT ON item FOR EACH ROW
+CREATE TRIGGER archive AFTER INSERT OR UPDATE OR DELETE ON item FOR EACH ROW
 EXECUTE FUNCTION archive();
